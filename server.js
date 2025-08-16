@@ -1,0 +1,350 @@
+// server.js
+require('dotenv').config(); // MUST be the very first line
+const express = require('express');
+const mongoose = require('mongoose');
+const nodemailer = require('nodemailer');
+const cors = require('cors');
+const { v4: uuidv4 } = require('uuid'); // For generating unique IDs
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+// ... other requires ...
+const auth = require('./middleware/auth'); // Adjust path if needed
+// ... other requires ...
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const AdminUser = require('./models/AdminUser'); // Adjust path if needed
+const { generateToken } = require('./utils/auth'); // Adjust path if needed
+
+// Middleware
+app.use(cors({
+  origin: 'http://127.0.0.1:5500' // Allow requests from your frontend origin (Live Server default)
+  // Adjust this if your frontend runs on a different port/host
+  // You might need to adjust or remove this based on your setup
+}));
+app.use(express.json()); // Parse JSON bodies
+
+// --- MongoDB Connection ---
+mongoose.connect(process.env.MONGODB_URI, {
+  // useNewUrlParser: true, // These options are handled by default in Mongoose 6+
+  // useUnifiedTopology: true,
+});
+
+const db = mongoose.connection;
+db.on('error', console.error.bind(console, 'MongoDB connection error:'));
+db.once('open', () => {
+  console.log("Connected to MongoDB");
+});
+const ORDER_STATUSES = ['pending', 'received', 'shipped', 'delivered', 'cancelled', 'paid'];
+// --- Mongoose Schema & Model for Orders ---
+const orderItemSchema = new mongoose.Schema({
+  name: String,
+  quality: String,
+  quantity: Number,
+  price: Number, // Price per item
+  itemTotal: Number // quantity * price
+});
+
+// Define allowed order statuses (Add this line before orderSchema)
+
+
+const orderSchema = new mongoose.Schema({
+  orderId: { type: String, required: true, unique: true },
+  customerInfo: {
+    name: String,
+    email: String,
+    phone: String,
+    address: String,
+  },
+  items: [orderItemSchema],
+  subtotal: Number,
+  discount: { type: Number, default: 0 },
+  shipping: { type: Number, default: 0 },
+  tax: { type: Number, default: 0 },
+  total: Number,
+  paymentMethod: String,
+  orderDate: { type: Date, default: Date.now },
+  // --- Add/Update the status field ---
+  status: {
+    type: String,
+    enum: ORDER_STATUSES, // Only allow values from the ORDER_STATUSES array
+    default: 'pending'   // Default status for new orders
+  }
+  // --- End status field ---
+});
+
+const Order = mongoose.model('Order', orderSchema);
+
+// --- Nodemailer Transporter ---
+const transporter = nodemailer.createTransport({
+  service: 'gmail', // Or your email provider (e.g., Outlook, Yahoo)
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS // Use App Password for Gmail
+  }
+});
+
+// --- End of Single Order Endpoint ---
+// --- API Endpoint for Admin Login ---
+app.post('/api/login', async (req, res) => { // <-- Make sure 'async' is here
+  const { username, password } = req.body;
+
+  // 1. Basic validation
+  if (!username || !password) {
+    return res.status(400).json({ message: 'Username and password are required.' });
+  }
+
+  try {
+    // 2. Find the user by username
+    const user = await AdminUser.findOne({ username: username.trim() });
+    if (!user) {
+      // Return generic error to avoid revealing if username exists
+      return res.status(401).json({ message: 'Invalid credentials.' });
+    }
+
+    // 3. Compare provided password with stored hash
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Invalid credentials.' });
+    }
+
+    // 4. Generate JWT token
+    const token = generateToken(user._id);
+
+    // 5. Send token back to the client
+    res.json({
+      message: 'Login successful',
+      token: token,
+      // user: { id: user._id, username: user.username } // Optional
+    });
+
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ message: 'Server error during login.' });
+  }
+});
+// --- End Login Endpoint ---
+
+// --- Helper Function to Send Email ---
+async function sendOrderEmail(orderData) {
+  try {
+    // Format order items for email body
+    let itemsList = orderData.items.map(item =>
+      `<li>${item.name} (${item.quality}) x ${item.quantity} @ PKR ${item.price.toLocaleString()} = PKR ${item.itemTotal.toLocaleString()}</li>`
+    ).join('');
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: process.env.EMAIL_USER, // Send to the store owner/admin
+      subject: `New Order Placed - Order ID: ${orderData.orderId}`,
+      html: `
+        <h2>New Order Received</h2>
+        <p><strong>Order ID:</strong> ${orderData.orderId}</p>
+        <p><strong>Order Date:</strong> ${new Date(orderData.orderDate).toLocaleString()}</p>
+        <p><strong>Customer Name:</strong> ${orderData.customerInfo.name}</p>
+        <p><strong>Customer Email:</strong> ${orderData.customerInfo.email}</p>
+        <p><strong>Customer Phone:</strong> ${orderData.customerInfo.phone}</p>
+        <p><strong>Customer Address:</strong> ${orderData.customerInfo.address}</p>
+        <p><strong>Payment Method:</strong> ${orderData.paymentMethod}</p>
+
+        <h3>Order Items:</h3>
+        <ul>${itemsList}</ul>
+
+        <table style="width:100%; border-collapse: collapse; border: 1px solid #ddd;">
+          <tr><td style="border: 1px solid #ddd; padding: 8px;"><strong>Subtotal:</strong></td><td style="border: 1px solid #ddd; padding: 8px;">PKR ${orderData.subtotal.toLocaleString()}</td></tr>
+          ${orderData.discount > 0 ? `<tr><td style="border: 1px solid #ddd; padding: 8px;"><strong>Discount:</strong></td><td style="border: 1px solid #ddd; padding: 8px;">-PKR ${orderData.discount.toLocaleString()}</td></tr>` : ''}
+          <tr><td style="border: 1px solid #ddd; padding: 8px;"><strong>Shipping:</strong></td><td style="border: 1px solid #ddd; padding: 8px;">PKR ${orderData.shipping.toLocaleString()}</td></tr>
+          <tr><td style="border: 1px solid #ddd; padding: 8px;"><strong>Tax:</strong></td><td style="border: 1px solid #ddd; padding: 8px;">PKR ${orderData.tax.toLocaleString()}</td></tr>
+          <tr style="font-weight:bold;"><td style="border: 1px solid #ddd; padding: 8px;"><strong>Total:</strong></td><td style="border: 1px solid #ddd; padding: 8px;">PKR ${orderData.total.toLocaleString()}</td></tr>
+        </table>
+      `
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Order email sent: ' + info.response);
+    return true;
+  } catch (error) {
+    console.error('Error sending order email:', error);
+    return false;
+  }
+};
+
+///////////////////////////////////////////////
+
+// --- API Endpoint to Receive Orders ---
+app.post('/api/orders',async(req,res) => {
+  try {
+    const orderData = req.body;
+
+    // Generate unique Order ID
+    const orderId = `ORD-${uuidv4().substring(0, 8).toUpperCase()}`; // Example: ORD-A1B2C3D4
+
+    // Add Order ID and Date to the data
+    orderData.orderId = orderId;
+    orderData.orderDate = new Date();
+
+    // Create new Order document
+    const newOrder = new Order(orderData);
+
+    // Save to MongoDB
+    const savedOrder = await newOrder.save();
+    console.log('Order saved to DB:', savedOrder.orderId);
+
+    // Send Email Notification
+    const emailSent = await sendOrderEmail(savedOrder); // Send the saved data (includes generated ID/date)
+
+    // Respond to frontend
+    // The original logic had a commented-out if block. Let's use a clear structure:
+    if (emailSent) {
+      res.status(201).json({ message: 'Order placed successfully and email sent!', orderId: savedOrder.orderId });
+    } else {
+       // Even if email fails, the order is saved.
+       console.warn('Order saved, but email notification failed.');
+       res.status(201).json({ message: 'Order placed successfully (email notification failed)!', orderId: savedOrder.orderId });
+    }
+
+    // --- Internal Notification ---
+    console.log(`*** NEW ORDER ALERT! Order ID: ${orderId} ***`);
+
+  } catch (error) {
+    console.error('Error processing order:', error);
+    res.status(500).json({ message: 'Error placing order', error: error.message });
+  }
+});
+// --- End API Endpoint to Receive Orders ---
+
+// --- Basic Endpoint to Fetch Orders (for potential dashboard) ---
+ app.get('/api/orders', async (req, res) => {
+  try {
+    const orders = await Order.find().sort({ orderDate: -1 }); // Get latest orders first
+    res.json(orders);
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    res.status(500).json({ message: 'Error fetching orders', error: error.message });
+  }
+ });
+
+// - API Endpoint to Search Orders -
+app.get('/api/orders/search',async (req, res) => {
+  console.log("Search endpoint hit. Query params:", req.query);
+  try { // <--- Make sure this 'try' is NOT commented out
+    // Get the search query from the URL query parameters (e.g., ?query=omr)
+    const searchTerm = req.query.query;
+    console.log("Extracted searchTerm:", searchTerm);
+
+    // Check if a search term was provided
+    if (!searchTerm || searchTerm.trim() === '') {
+      console.log("No search term provided, fetching all orders...");
+      const allOrders = await Order.find().sort({ orderDate: -1 });
+      console.log(`Found ${allOrders.length} orders.`);
+      return res.json(allOrders);
+    }
+
+    console.log(`Performing search for term: '${searchTerm}'`);
+    const searchRegex = new RegExp(searchTerm, 'i');
+    const matchingOrders = await Order.find({
+      $or: [
+        { orderId: searchRegex },
+        { 'customerInfo.name': searchRegex },
+        { 'customerInfo.email': searchRegex }
+      ]
+    }).sort({ orderDate: -1 });
+
+    console.log(`Search for '${searchTerm}' returned ${matchingOrders.length} orders.`);
+    res.json(matchingOrders);
+  } catch (error) { // <--- This 'catch' must correspond to the 'try' above
+    console.error('Error searching orders:', error);
+    res.status(500).json({ message: 'Error searching orders', error: error.message });
+  }
+}); // <--- This closes the 'app.get' route handler function
+// - End of Search Orders Endpoint
+// --- API Endpoint to Update Order Status ---
+app.put('/api/orders/:orderId/status',async (req, res) => {
+  try {
+    const orderId = req.params.orderId;
+    const { status } = req.body; // Get the new status from the request body
+
+    // Validate the provided status
+    if (!ORDER_STATUSES.includes(status)) {
+      return res.status(400).json({ message: 'Invalid status provided.' });
+    }
+
+    // Find the order by its unique orderId field and update the status
+    const updatedOrder = await Order.findOneAndUpdate(
+      { orderId: orderId },       // Find condition
+      { status: status },         // Update data
+      { new: true }               // Options: return the updated document
+    );
+
+    if (!updatedOrder) {
+      return res.status(404).json({ message: 'Order not found.' });
+    }
+
+    res.json({ message: 'Order status updated successfully.', order: updatedOrder });
+  } catch (error) {
+    console.error('Error updating order status:', error);
+    // Handle potential errors like CastError for invalid ID format
+    if (error.name === 'CastError') {
+      return res.status(400).json({ message: 'Invalid order ID format.' });
+    }
+    res.status(500).json({ message: 'Error updating order status.', error: error.message });
+  }
+});
+// --- End Update Order Status Endpoint ---
+// --- API Endpoint to Fetch a Single Order by ID ---
+// Route parameter :orderId will capture the value from the URL
+app.get('/api/orders/:orderId', async (req, res) => {
+  try {
+    const orderId = req.params.orderId; // Get the ID from the URL
+
+    // Find the order by its unique orderId field (not the MongoDB _id)
+    const order = await Order.findOne({ orderId: orderId });
+
+    if (!order) {
+      // If no order found with that ID
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // If order found, send it back
+    res.json(order);
+  } catch (error) {
+    console.error('Error fetching order details:', error);
+    // Handle potential errors like invalid ObjectId format etc.
+    if (error.name === 'CastError') {
+       return res.status(400).json({ message: 'Invalid order ID format' });
+    }
+    res.status(500).json({ message: 'Error fetching order details', error: error.message });
+  }
+});
+
+
+// --- TEMPORARY: Create Admin User (Remove after first run) ---
+// WARNING: Remove this block after creating your admin user!
+const createAdminUser = async () => {
+  const username = 'admin'; // Change this
+  const password = 'securepassword123'; // Change this to a strong password
+
+  try {
+    // Check if user already exists
+    const existingUser = await AdminUser.findOne({ username });
+    if (existingUser) {
+      console.log(`Admin user '${username}' already exists.`);
+      return;
+    }
+
+    // Create new user
+    const newUser = new AdminUser({ username, password });
+    await newUser.save();
+    console.log(`Admin user '${username}' created successfully.`);
+  } catch (error) {
+    console.error('Error creating admin user:', error);
+  }
+};
+
+// Call the function (only once)
+//createAdminUser(); // Uncomment this line to create the user, then comment it out again!
+// --- END TEMPORARY ---
+// --- Start Server ---
+app.listen(PORT, () => {
+  console.log(`Dashboard Backend running on port ${PORT}`);
+});
