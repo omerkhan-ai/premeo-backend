@@ -14,7 +14,7 @@ const allowedOrigins = [
   'http://127.0.0.1:5500', // Local development (Live Server default)
   'http://localhost:5500',  // Alternative local development URL
   // Add your deployed frontend URL here once you get it from Vercel
-  'https://your-frontend-url-from-vercel.vercel.app' // <--- PLACEHOLDER for now (removed extra spaces)
+  'https://premeo-store.vercel.app'
   // Example later: 'https://premeo-store.vercel.app'
   // Add your custom domain here if you set one up later
   // 'https://www.yourstore.com'
