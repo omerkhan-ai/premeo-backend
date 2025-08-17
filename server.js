@@ -8,6 +8,33 @@ const { v4: uuidv4 } = require('uuid'); // For generating unique IDs
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// --- CORS Configuration ---
+const allowedOrigins = [
+  'http://127.0.0.1:5500', // Local development (Live Server default)
+  'http://localhost:5500',  // Alternative local development URL
+  // Add your deployed frontend URL here once you get it from Vercel
+  'https://your-frontend-url-from-vercel.vercel.app' // <--- PLACEHOLDER for now (removed extra spaces)
+  // Example later: 'https://premeo-store.vercel.app'
+  // Add your custom domain here if you set one up later
+  // 'https://www.yourstore.com'
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, or server-to-server)
+    if (!origin) return callback(null, true);
+    // Check if the incoming origin is in our allowed list
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true); // Allow the request
+    } else {
+      // Block the request if origin is not allowed
+      callback(new Error('Not allowed by CORS'));
+    }
+  }
+};
+// --- End CORS Configuration ---
+
 // ... other requires ...
 const auth = require('./middleware/auth'); // Adjust path if needed
 // ... other requires ...
@@ -17,11 +44,8 @@ const AdminUser = require('./models/AdminUser'); // Adjust path if needed
 const { generateToken } = require('./utils/auth'); // Adjust path if needed
 
 // Middleware
-app.use(cors({
-  origin: 'http://127.0.0.1:5500' // Allow requests from your frontend origin (Live Server default)
-  // Adjust this if your frontend runs on a different port/host
-  // You might need to adjust or remove this based on your setup
-}));
+// Apply the configured CORS options (THIS REPLACES the old app.use(cors(...)) line)
+app.use(cors(corsOptions)); // Use the configured options
 app.use(express.json()); // Parse JSON bodies
 
 // --- MongoDB Connection ---
@@ -29,6 +53,8 @@ mongoose.connect(process.env.MONGODB_URI, {
   // useNewUrlParser: true, // These options are handled by default in Mongoose 6+
   // useUnifiedTopology: true,
 });
+
+// ... rest of your existing code ...
 
 const db = mongoose.connection;
 db.on('error', console.error.bind(console, 'MongoDB connection error:'));
