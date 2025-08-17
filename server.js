@@ -11,12 +11,10 @@ const PORT = process.env.PORT || 3001;
 
 // --- CORS Configuration ---
 const allowedOrigins = [
-  'http://127.0.0.1:5500', // Local development (Live Server default)
+'http://127.0.0.1:5500', // Local development (Live Server default)
   'http://localhost:5500',  // Alternative local development URL
-  // Add your deployed frontend URL here once you get it from Vercel
-  'https://premeo-store-1armywp2a-omerkhan-ais-projects.vercel.app/'
-  // Example later: 'https://premeo-store.vercel.app'
-  // Add your custom domain here if you set one up later
+  'https://premeo-store-ogwrxijsd-omerkhan-ais-projects.vercel.app' // <-- YOUR ACTUAL VERCEL URL
+  // Add other domains if needed, e.g., custom domain later:
   // 'https://www.yourstore.com'
 ];
 
