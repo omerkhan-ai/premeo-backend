@@ -343,7 +343,103 @@ app.get('/api/orders/:orderId', async (req, res) => {
     res.status(500).json({ message: 'Error fetching order details', error: error.message });
   }
 });
+// --- API Endpoint for Contact Form ---
+app.post('/api/contact', async (req, res) => {
+  try {
+    const { name, email, subject, message } = req.body;
 
+    // 1. Basic validation
+    if (!name || !email || !message) {
+      return res.status(400).json({ message: 'Name, email, and message are required.' });
+    }
+
+    // 2. Basic email format validation (you can use a more robust library like 'validator' if needed)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: 'Please provide a valid email address.' });
+    }
+
+    // 3. Process the data (send email, save to database, etc.)
+    // For now, let's log it and send a confirmation email
+
+    console.log("Received Contact Form Submission:");
+    console.log("Name:", name);
+    console.log("Email:", email);
+    console.log("Subject:", subject || '(No subject)');
+    console.log("Message:", message);
+
+    // --- Send Email to Store Owner ---
+    const mailOptionsToOwner = {
+      from: process.env.EMAIL_USER, // Your store's email
+      to: process.env.EMAIL_USER,   // Send to the store owner/admin
+      replyTo: email,               // Allow replying directly to the customer
+      subject: `Contact Form Submission: ${subject || 'No Subject'}`,
+      text: `
+        You have received a new message from your website contact form.
+
+        Name: ${name}
+        Email: ${email}
+        Subject: ${subject || 'N/A'}
+        
+        Message:
+        ${message}
+      `,
+      html: `
+        <h2>New Contact Form Submission</h2>
+        <p><strong>Name:</strong> ${name}</p>
+        <p><strong>Email:</strong> <a href="mailto:${email}">${email}</a></p>
+        <p><strong>Subject:</strong> ${subject || 'N/A'}</p>
+        <h3>Message:</h3>
+        <p>${message.replace(/\n/g, '<br>')}</p>
+      `
+    };
+
+    // --- Optional: Send Confirmation Email to Customer ---
+    const mailOptionsToCustomer = {
+      from: process.env.EMAIL_USER,
+      to: email, // Send to the customer's email
+      subject: 'Thank you for contacting PREMEO',
+      text: `
+        Dear ${name},
+
+        Thank you for reaching out to PREMEO. We have received your message and will get back to you as soon as possible.
+
+        Your message:
+        ${message}
+
+        Best regards,
+        The PREMEO Team
+      `,
+      html: `
+        <p>Dear ${name},</p>
+        <p>Thank you for reaching out to PREMEO. We have received your message and will get back to you as soon as possible.</p>
+        <h3>Your Message:</h3>
+        <p>${message.replace(/\n/g, '<br>')}</p>
+        <p>Best regards,<br>The PREMEO Team</p>
+      `
+    };
+
+    // Send emails
+    await transporter.sendMail(mailOptionsToOwner);
+    console.log('Contact form email sent to owner.');
+    
+    // Optionally send confirmation to customer (uncomment the next 2 lines if desired)
+    // await transporter.sendMail(mailOptionsToCustomer);
+    // console.log('Confirmation email sent to customer.');
+
+    // 4. Send success response
+    res.status(200).json({ message: 'Your message has been sent successfully! We will contact you soon.' });
+
+  } catch (error) {
+    console.error('Error processing contact form:', error);
+    // Differentiate between Nodemailer errors and others if needed
+    if (error.code) {
+       console.error('Nodemailer Error Code:', error.code);
+    }
+    res.status(500).json({ message: 'Failed to send your message. Please try again later.' });
+  }
+});
+// --- End Contact Form Endpoint ---
 
 // --- TEMPORARY: Create Admin User (Remove after first run) ---
 // WARNING: Remove this block after creating your admin user!
