@@ -157,9 +157,11 @@ app.post('/api/login', async (req, res) => { // <-- Make sure 'async' is here
 async function sendOrderEmail(orderData) {
   try {
     // Format order items for email body
-    let itemsList = orderData.items.map(item =>
-      `<li>${item.name} (${item.quality}) x ${item.quantity} @ PKR ${item.price.toLocaleString()} = PKR ${item.itemTotal.toLocaleString()}</li>`
-    ).join('');
+      let itemsList = orderData.items.map(item => {
+      // Include selectedColor if it exists and is not null/undefined
+      const colorPart = item.selectedColor ? ` (${item.selectedColor})` : '';
+      return `<li>${item.name}${colorPart} (${item.quality}) x ${item.quantity} @ PKR ${item.price.toLocaleString()} = PKR ${item.itemTotal.toLocaleString()}</li>`;
+    }).join('');
 
     const mailOptions = {
       from: process.env.EMAIL_USER,
