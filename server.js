@@ -156,6 +156,21 @@ app.post('/api/login', async (req, res) => { // <-- Make sure 'async' is here
 // --- Helper Function to Send Email ---
 async function sendOrderEmail(orderData) {
   try {
+       // --- ADD THIS DEBUGGING BLOCK ---
+    console.log("--- DEBUG: sendOrderEmail received orderData.items ---");
+    if (orderData && Array.isArray(orderData.items)) {
+        orderData.items.forEach((item, index) => {
+            console.log(`Item ${index}: Name='${item.name}', selectedColor='${item.selectedColor}' (Type: ${typeof item.selectedColor})`);
+            // Check if the value is the literal string "undefined"
+            if (item.selectedColor === "undefined") {
+                console.warn(`  WARNING: Item ${index} has selectedColor as literal string 'undefined'`);
+            }
+        });
+    } else {
+        console.error("DEBUG: orderData.items is missing or not an array:", orderData.items);
+    }
+    console.log("--- END DEBUG ---");
+    // --- END ADDITION ---
     // Format order items for email body
       let itemsList = orderData.items.map(item => {
       // Include selectedColor if it exists and is not null/undefined
