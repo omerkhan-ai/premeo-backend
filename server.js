@@ -228,7 +228,7 @@ async function sendOrderEmail(orderData) {
 ///////////////////////////////////////////////
 
 // --- API Endpoint to Receive Orders ---
-app.post('/api/orders',async(req,res) => {
+app.post('/api/orders', async (req, res) => {
   try {
     const orderData = req.body;
 
@@ -246,18 +246,40 @@ app.post('/api/orders',async(req,res) => {
     const savedOrder = await newOrder.save();
     console.log('Order saved to DB:', savedOrder.orderId);
 
-    // Send Email Notification
-    const emailSent = await sendOrderEmail(savedOrder); // Send the saved data (includes generated ID/date)
+    // --- SOLUTION: Convert to plain object first ---
+    const plainOrderData = savedOrder.toObject(); // Convert Mongoose Document to plain JS object
+    // --- END SOLUTION ---
 
-    // Respond to frontend
-    // The original logic had a commented-out if block. Let's use a clear structure:
-    if (emailSent) {
-      res.status(201).json({ message: 'Order placed successfully and email sent!', orderId: savedOrder.orderId });
-    } else {
-       // Even if email fails, the order is saved.
-       console.warn('Order saved, but email notification failed.');
-       res.status(201).json({ message: 'Order placed successfully (email notification failed)!', orderId: savedOrder.orderId });
+    // Send Email Notification using the PLAIN object
+    // Remove the duplicate/incorrect call that used the Mongoose document
+    // await sendOrderEmail(savedOrder); // <-- REMOVE THIS LINE
+
+    // Call sendOrderEmail ONCE with the plain object
+    // Optionally, handle potential errors within sendOrderEmail itself
+    // or wrap this call in a try/catch if you want to differentiate
+    // order save success from email send success in the response.
+    try {
+        await sendOrderEmail(plainOrderData); // <-- Pass the CORRECT plain object
+        console.log('Order notification email sent successfully for Order ID:', plainOrderData.orderId);
+        // Respond to frontend indicating success (order saved, email sent)
+        res.status(201).json({ message: 'Order placed successfully and email sent!', orderId: plainOrderData.orderId });
+    } catch (emailError) {
+        // The order was saved, but the email failed
+        console.error('Order saved, but email notification failed for Order ID:', plainOrderData.orderId, emailError);
+        // You can choose to send an error status or still send 201 but indicate email failure
+        // Option 1: Still success, but note email issue
+        res.status(201).json({ message: 'Order placed successfully (email notification failed)!', orderId: plainOrderData.orderId });
+        // Option 2: Send an error status (might be confusing for the user if the order went through)
+        // res.status(500).json({ message: 'Order placed, but failed to send notification email. Please contact support with Order ID: ' + plainOrderData.orderId, orderId: plainOrderData.orderId });
     }
+
+  } catch (error) {
+    console.error('Error processing order:', error);
+    // Use 500 for server errors, 400 for bad requests (e.g., validation errors)
+    res.status(500).json({ message: 'Error placing order: ' + error.message });
+  }
+});
+// --- END API Endpoint ---
 
     // --- Internal Notification ---
     console.log(`*** NEW ORDER ALERT! Order ID: ${orderId} ***`);
