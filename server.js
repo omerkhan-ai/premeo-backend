@@ -228,6 +228,7 @@ async function sendOrderEmail(orderData) {
 ///////////////////////////////////////////////
 
 // --- API Endpoint to Receive Orders ---
+// --- API Endpoint to Receive Orders ---
 app.post('/api/orders', async (req, res) => {
   try {
     const orderData = req.body;
@@ -279,17 +280,7 @@ app.post('/api/orders', async (req, res) => {
     res.status(500).json({ message: 'Error placing order: ' + error.message });
   }
 });
-// --- END API Endpoint ---
-
-    // --- Internal Notification ---
-    console.log(`*** NEW ORDER ALERT! Order ID: ${orderId} ***`);
-
-  } catch (error) {
-    console.error('Error processing order:', error);
-    res.status(500).json({ message: 'Error placing order', error: error.message });
-  }
-});
-// --- End API Endpoint to Receive Orders ---
+// --- END API Endpoint -- to Receive Orders ---
 
 // --- Basic Endpoint to Fetch Orders (for potential dashboard) ---
  app.get('/api/orders', async (req, res) => {
