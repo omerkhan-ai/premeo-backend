@@ -156,18 +156,29 @@ app.post('/api/login', async (req, res) => { // <-- Make sure 'async' is here
 // --- Helper Function to Send Email ---
 async function sendOrderEmail(orderData) {
   try {
-       // --- ADD THIS DEBUGGING BLOCK ---
-    console.log("--- DEBUG: sendOrderEmail received orderData.items ---");
+    // --- ENHANCED DEBUGGING BLOCK ---
+    console.log("--- DEBUG: sendOrderEmail received orderData ---");
+    console.log("Full orderData keys:", Object.keys(orderData || {}));
     if (orderData && Array.isArray(orderData.items)) {
+        console.log(`Number of items: ${orderData.items.length}`);
         orderData.items.forEach((item, index) => {
-            console.log(`Item ${index}: Name='${item.name}', selectedColor='${item.selectedColor}' (Type: ${typeof item.selectedColor})`);
-            // Check if the value is the literal string "undefined"
-            if (item.selectedColor === "undefined") {
-                console.warn(`  WARNING: Item ${index} has selectedColor as literal string 'undefined'`);
+            console.log(`--- Item ${index} ---`);
+            console.log(`  Name: '${item.name}'`);
+            console.log(`  Type of selectedColor: ${typeof item.selectedColor}`);
+            console.log(`  Value of selectedColor:`, item.selectedColor); // Use comma for better inspection of null/undefined
+            console.log(`  selectedColor === undefined:`, item.selectedColor === undefined);
+            console.log(`  selectedColor === 'undefined':`, item.selectedColor === 'undefined');
+            console.log(`  'selectedColor' in item:`, 'selectedColor' in item);
+            if (item.selectedColor && typeof item.selectedColor === 'string') {
+                console.log(`  Length of selectedColor: ${item.selectedColor.length}`);
+                console.log(`  First char code of selectedColor: ${item.selectedColor.charCodeAt(0)}`);
             }
+            console.log("--- End Item ---");
         });
     } else {
-        console.error("DEBUG: orderData.items is missing or not an array:", orderData.items);
+        console.error("ERROR: orderData.items is missing or not an array. Type:", typeof orderData?.items, "Value:", orderData?.items);
+        // Log the entire orderData if items are missing
+        console.error("Full orderData received:", JSON.stringify(orderData, null, 2));
     }
     console.log("--- END DEBUG ---");
     // --- END ADDITION ---
