@@ -229,9 +229,32 @@ async function sendOrderEmail(orderData) {
 
 // --- API Endpoint to Receive Orders ---
 // --- API Endpoint to Receive Orders ---
+// --- API Endpoint to Receive Orders ---
 app.post('/api/orders', async (req, res) => {
   try {
-    const orderData = req.body;
+    // --- ADD THIS DEBUGGING BLOCK AT THE VERY START ---
+    console.log("--- DEBUG: Raw req.body received by /api/orders ---");
+    console.log("Type of req.body:", typeof req.body);
+    console.log("Keys in req.body:", Object.keys(req.body || {}));
+    if (req.body && Array.isArray(req.body.items)) {
+        console.log(`Number of items in req.body: ${req.body.items.length}`);
+        req.body.items.forEach((item, index) => {
+            console.log(`--- req.body Item ${index} ---`);
+            console.log(`  Name: '${item.name}'`);
+            console.log(`  Type of selectedColor: ${typeof item.selectedColor}`);
+            console.log(`  Value of selectedColor:`, item.selectedColor); // Comma for null/undefined
+            console.log(`  selectedColor === undefined:`, item.selectedColor === undefined);
+            console.log(`  'selectedColor' in item:`, 'selectedColor' in item);
+            console.log("--- End req.body Item ---");
+        });
+    } else {
+         console.log("req.body.items is missing or not an array. Full req.body:", JSON.stringify(req.body, null, 2));
+    }
+    console.log("--- END DEBUG: Raw req.body ---");
+    // --- END ADDITION ---
+
+
+    const orderData = req.body; // This should now be the raw data from frontend
 
     // Generate unique Order ID
     const orderId = `ORD-${uuidv4().substring(0, 8).toUpperCase()}`; // Example: ORD-A1B2C3D4
@@ -247,18 +270,33 @@ app.post('/api/orders', async (req, res) => {
     const savedOrder = await newOrder.save();
     console.log('Order saved to DB:', savedOrder.orderId);
 
-    // --- SOLUTION: Convert to plain object first ---
-    const plainOrderData = savedOrder.toObject(); // Convert Mongoose Document to plain JS object
-    // --- END SOLUTION ---
+    // --- CONVERT TO PLAIN OBJECT ---
+    const plainOrderData = savedOrder.toObject();
+    // --- END CONVERSION ---
+
+    // --- ADD THIS DEBUGGING BLOCK AFTER toObject() ---
+    console.log("--- DEBUG: plainOrderData after toObject() ---");
+    console.log("Type of plainOrderData:", typeof plainOrderData);
+    console.log("Keys in plainOrderData:", Object.keys(plainOrderData || {}));
+    if (plainOrderData && Array.isArray(plainOrderData.items)) {
+        console.log(`Number of items in plainOrderData: ${plainOrderData.items.length}`);
+        plainOrderData.items.forEach((item, index) => {
+            console.log(`--- plainOrderData Item ${index} ---`);
+            console.log(`  Name: '${item.name}'`);
+            console.log(`  Type of selectedColor: ${typeof item.selectedColor}`);
+            console.log(`  Value of selectedColor:`, item.selectedColor); // Comma for null/undefined
+            console.log(`  selectedColor === undefined:`, item.selectedColor === undefined);
+            console.log(`  'selectedColor' in item:`, 'selectedColor' in item);
+            console.log("--- End plainOrderData Item ---");
+        });
+    } else {
+         console.log("plainOrderData.items is missing or not an array. Full plainOrderData:", JSON.stringify(plainOrderData, null, 2));
+    }
+    console.log("--- END DEBUG: plainOrderData ---");
+    // --- END ADDITION ---
+
 
     // Send Email Notification using the PLAIN object
-    // Remove the duplicate/incorrect call that used the Mongoose document
-    // await sendOrderEmail(savedOrder); // <-- REMOVE THIS LINE
-
-    // Call sendOrderEmail ONCE with the plain object
-    // Optionally, handle potential errors within sendOrderEmail itself
-    // or wrap this call in a try/catch if you want to differentiate
-    // order save success from email send success in the response.
     try {
         await sendOrderEmail(plainOrderData); // <-- Pass the CORRECT plain object
         console.log('Order notification email sent successfully for Order ID:', plainOrderData.orderId);
@@ -267,20 +305,15 @@ app.post('/api/orders', async (req, res) => {
     } catch (emailError) {
         // The order was saved, but the email failed
         console.error('Order saved, but email notification failed for Order ID:', plainOrderData.orderId, emailError);
-        // You can choose to send an error status or still send 201 but indicate email failure
-        // Option 1: Still success, but note email issue
         res.status(201).json({ message: 'Order placed successfully (email notification failed)!', orderId: plainOrderData.orderId });
-        // Option 2: Send an error status (might be confusing for the user if the order went through)
-        // res.status(500).json({ message: 'Order placed, but failed to send notification email. Please contact support with Order ID: ' + plainOrderData.orderId, orderId: plainOrderData.orderId });
     }
 
   } catch (error) {
     console.error('Error processing order:', error);
-    // Use 500 for server errors, 400 for bad requests (e.g., validation errors)
     res.status(500).json({ message: 'Error placing order: ' + error.message });
   }
 });
-// --- END API Endpoint -- to Receive Orders ---
+// --- END API Endpoint ---
 
 // --- Basic Endpoint to Fetch Orders (for potential dashboard) ---
  app.get('/api/orders', async (req, res) => {
