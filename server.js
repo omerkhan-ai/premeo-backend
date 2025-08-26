@@ -70,7 +70,8 @@ const orderItemSchema = new mongoose.Schema({
   quality: String,
   quantity: Number,
   price: Number, // Price per item
-  itemTotal: Number // quantity * price
+  itemTotal: Number, // quantity * price
+  selectedColor: String // Add the selectedColor field to the schema
 });
 
 // Define allowed order statuses (Add this line before orderSchema)
