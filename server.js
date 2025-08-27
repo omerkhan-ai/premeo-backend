@@ -21,6 +21,10 @@ const allowedOrigins = [
   // Add other domains if needed, e.g., custom domain later:
   // 'https://www.yourstore.com'
 ];
+// Add this route in your server.js, preferably near the top
+app.get('/api/ping', (req, res) => {
+  res.status(200).json({ message: 'Pong! Backend is awake.' });
+});
 
 const corsOptions = {
   origin: function (origin, callback) {
