@@ -21,10 +21,7 @@ const allowedOrigins = [
   // Add other domains if needed, e.g., custom domain later:
   // 'https://www.yourstore.com'
 ];
-// Add this route in your server.js, preferably near the top
-app.get('/api/ping', (req, res) => {
-  res.status(200).json({ message: 'Pong! Backend is awake.' });
-});
+
 
 const corsOptions = {
   origin: function (origin, callback) {
@@ -64,6 +61,11 @@ mongoose.connect(process.env.MONGODB_URI, {
 });
 
 // ... rest of your existing code ...
+
+// Add this route in your server.js, preferably near the top
+app.get('/api/ping', (req, res) => {
+  res.status(200).json({ message: 'Pong! Backend is awake.' });
+});
 
 const db = mongoose.connection;
 db.on('error', console.error.bind(console, 'MongoDB connection error:'));
