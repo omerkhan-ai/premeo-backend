@@ -28,6 +28,9 @@ app.get('/api/ping', (req, res) => {
 
 const corsOptions = {
   origin: function (origin, callback) {
+     console.log("--- CORS Debug: Incoming Origin ---"); // Add this line
+    console.log("Origin Header Received:", origin);    // Add this line
+    console.log("Allowed Origins List:", allowedOrigins); // Add this line
     // Allow requests with no origin (like mobile apps, curl, or server-to-server)
     if (!origin) return callback(null, true);
     // Check if the incoming origin is in our allowed list
