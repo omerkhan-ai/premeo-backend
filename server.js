@@ -120,7 +120,7 @@ const transporter = nodemailer.createTransporter({
   secure: true,          // true for 465, false for other ports like 587 (STARTTLS)
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS // Use App Password for Gmail
+    pass: process.env.EMAIL_PASS // Use App Password for Gmail ch
   }
 });
 // --- End of Nodemailer Transporter (Updated) ---
