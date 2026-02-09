@@ -113,14 +113,17 @@ const orderSchema = new mongoose.Schema({
 
 const Order = mongoose.model('Order', orderSchema);
 
-// --- Nodemailer Transporter ---
-const transporter = nodemailer.createTransport({
-  service: 'gmail', // Or your email provider (e.g., Outlook, Yahoo)
+// --- Nodemailer Transporter (Updated for Secure Connection) ---
+const transporter = nodemailer.createTransporter({
+  host: "smtp.gmail.com", // Explicitly define the host
+  port: 465,              // Use port 465 for SSL
+  secure: true,          // true for 465, false for other ports like 587 (STARTTLS)
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS // Use App Password for Gmail
   }
 });
+// --- End of Nodemailer Transporter (Updated) ---
 
 // --- End of Single Order Endpoint ---
 // --- API Endpoint for Admin Login ---
